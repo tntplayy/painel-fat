@@ -1,245 +1,425 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Painel de Faturamento</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React e ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel para React JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Supabase Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+<body class="bg-[#090d16] text-slate-100">
+  <div id="root"></div>
 
-    <!-- TELA DE LOGIN -->
-    <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
-        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
-            <div class="space-y-4">
+  <script type="text/babel">
+    const supabaseUrl = 'https://zyiufxdkcpojjpszixis.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_hmNkWIeW-eHT_QZrPYvRNg_0lii4_2O';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [session, setSession] = useState(null);
+      const [emailInput, setEmailInput] = useState('');
+      const [passwordInput, setPasswordInput] = useState('');
+      const [loginError, setLoginError] = useState('');
+      const [loadingLogin, setLoadingLogin] = useState(false);
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [faturamentos, setFaturamentos] = useState([]);
+      const [loadingData, setLoadingData] = useState(false);
+
+      // Campos do formulário de adição
+      const [contaSelecionada, setContaSelecionada] = useState('andre');
+      const [mesInput, setMesInput] = useState('');
+      const [brutoInput, setBrutoInput] = useState('');
+      const [lucroInput, setLucroInput] = useState('');
+
+      useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSession(session);
+        });
+
+        return () => subscription.unsubscribe();
+      }, []);
+
+      const carregarFaturamentos = async () => {
+        setLoadingData(true);
+        const { data, error } = await supabase
+          .from('faturamento')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar faturamento:', error);
+        } else if (data) {
+          setFaturamentos(data);
+        }
+        setLoadingData(false);
+      };
+
+      useEffect(() => {
+        if (session) {
+          carregarFaturamentos();
+        }
+      }, [session]);
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }, [session, activeTab, faturamentos]);
+
+      const handleLoginSubmit = async (e) => {
+        e.preventDefault();
+        setLoginError('');
+        setLoadingLogin(true);
+
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailInput,
+          password: passwordInput,
+        });
+
+        if (error) {
+          setLoginError('E-mail ou senha incorretos!');
+        } else {
+          setEmailInput('');
+          setPasswordInput('');
+        }
+        setLoadingLogin(false);
+      };
+
+      const handleLogout = async () => {
+        await supabase.auth.signOut();
+        setSession(null);
+      };
+
+      const handleSalvarFaturamento = async (e) => {
+        e.preventDefault();
+        if (!mesInput || !brutoInput || !lucroInput) {
+          alert('Preencha todos os campos.');
+          return;
+        }
+
+        const { error } = await supabase.from('faturamento').insert([{
+          conta: contaSelecionada,
+          mes: mesInput,
+          bruto: parseFloat(brutoInput),
+          lucro: parseFloat(lucroInput)
+        }]);
+
+        if (error) {
+          alert('Erro ao salvar: ' + error.message);
+        } else {
+          alert('Registro salvo com sucesso!');
+          setMesInput('');
+          setBrutoInput('');
+          setLucroInput('');
+          carregarFaturamentos();
+        }
+      };
+
+      const handleDelete = async (id) => {
+        const { error } = await supabase.from('faturamento').delete().eq('id', id);
+        if (error) {
+          alert('Erro ao deletar: ' + error.message);
+        } else {
+          carregarFaturamentos();
+        }
+      };
+
+      // Cálculos
+      let totalAndre = 0;
+      let totalEduarda = 0;
+
+      faturamentos.forEach(item => {
+        if (item.conta === 'andre') totalAndre += Number(item.bruto || 0);
+        if (item.conta === 'eduarda') totalEduarda += Number(item.bruto || 0);
+      });
+      const totalGeral = totalAndre + totalEduarda;
+
+      if (!session) {
+        return (
+          <div className="flex min-h-screen items-center justify-center bg-[#090d16] p-4 font-sans">
+            <div className="w-full max-w-md bg-[#0d1322] border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20">
+                  <i data-lucide="shield-check" className="w-8 h-8"></i>
+                </div>
+                <h1 className="text-2xl font-bold text-white tracking-wider">PAINEL <span className="text-blue-500">FATURAMENTO</span></h1>
+                <p className="text-xs text-slate-400">Entre com suas credenciais do Supabase Auth</p>
+              </div>
+
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
-                    <input type="text" id="email-input" value="tntplayy@gmail.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                  <label className="block text-xs text-slate-400 mb-1">E-mail</label>
+                  <input
+                    type="email"
+                    placeholder="tntplayy@gmail.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 placeholder-slate-500"
+                    required
+                  />
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
-                    <input type="password" id="senha-input" placeholder="Digite a senha" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                  <label className="block text-xs text-slate-400 mb-1">Senha</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 placeholder-slate-500"
+                    required
+                  />
                 </div>
-                <button onclick="fazerLoginBanco()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200">
-                    Entrar no Painel
+
+                {loginError && <p className="text-xs text-rose-500 text-center font-semibold">{loginError}</p>}
+
+                <button
+                  type="submit"
+                  disabled={loadingLogin}
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm"
+                >
+                  {loadingLogin ? 'Autenticando...' : 'Acessar Painel'}
                 </button>
-                <p id="error-msg" class="text-red-400 text-sm text-center mt-2 hidden">E-mail ou senha incorretos!</p>
+              </form>
             </div>
-        </div>
-    </div>
+          </div>
+        );
+      }
 
-    <!-- MENU LATERAL -->
-    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col justify-between">
-        <div>
-            <div class="p-5 border-b border-gray-700">
-                <h1 class="text-xl font-bold text-blue-400">📊 Faturamento</h1>
-            </div>
-            <nav class="p-4 space-y-2">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="w-full text-left px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium transition">🏠 Dashboard</button>
-                <button onclick="switchTab('andre')" id="btn-andre" class="w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition">📁 FAT ANDRÉ</button>
-                <button onclick="switchTab('eduarda')" id="btn-eduarda" class="w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition">📁 FAT EDUARDA</button>
-            </nav>
-        </div>
-        <div class="p-4 border-t border-gray-700">
-            <button onclick="logout()" class="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded-lg transition font-medium text-sm">🚪 Sair</button>
-        </div>
-    </aside>
-
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main class="flex-1 p-8 overflow-y-auto">
-        
-        <!-- DASHBOARD -->
-        <div id="tab-dashboard" class="space-y-6">
-            <h2 class="text-2xl font-bold">Visão Geral</h2>
-            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-2xl border border-blue-700 shadow-lg">
-                <p class="text-sm text-blue-200 uppercase tracking-wider font-semibold">Faturamento Total Combinado</p>
-                <p id="total-geral" class="text-4xl font-extrabold mt-2">R$ 0,00</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <p class="text-sm text-gray-400 uppercase tracking-wider font-semibold">FAT ANDRÉ</p>
-                    <p id="total-andre" class="text-2xl font-bold mt-2 text-emerald-400">R$ 0,00</p>
+      return (
+        <div className="flex flex-col md:flex-row h-screen bg-[#090d16] text-slate-100 font-sans antialiased overflow-hidden">
+          
+          {/* NAVEGAÇÃO DESKTOP */}
+          <aside className="hidden md:flex md:w-64 bg-[#0d1322] border-r border-slate-800/60 flex-col justify-between shrink-0">
+            <div>
+              <div className="p-6 flex items-center space-x-3 border-b border-slate-800/40">
+                <div className="bg-blue-600/20 p-2 rounded-xl border border-blue-500/30">
+                  <i data-lucide="bar-chart-3" className="w-6 h-6 text-blue-400"></i>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <p class="text-sm text-gray-400 uppercase tracking-wider font-semibold">FAT EDUARDA</p>
-                    <p id="total-eduarda" class="text-2xl font-bold mt-2 text-purple-400">R$ 0,00</p>
+                <div>
+                  <h1 className="font-bold text-lg tracking-wider text-white">FATURAMENTO</h1>
                 </div>
-            </div>
-        </div>
+              </div>
 
-        <!-- FAT ANDRÉ -->
-        <div id="tab-andre" class="hidden space-y-6">
-            <h2 class="text-2xl font-bold text-emerald-400">Gestão - FAT ANDRÉ</h2>
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
-                <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
-                        <input type="text" id="mes-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
-                        <input type="number" step="0.01" id="bruto-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
-                        <input type="number" step="0.01" id="lucro-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <button onclick="salvarDados('andre')" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+              <nav className="p-4 space-y-1">
+                <button 
+                  onClick={() => setActiveTab('dashboard')} 
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
+                >
+                  <i data-lucide="layout-dashboard" className="w-5 h-5"></i>
+                  <span>Dashboard</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab('gestao')} 
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'gestao' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
+                >
+                  <i data-lucide="plus-circle" className="w-5 h-5"></i>
+                  <span>Adicionar / Gerenciar</span>
+                </button>
+              </nav>
+            </div>
+
+            <div className="p-4 border-t border-slate-800/40">
+              <button 
+                onClick={handleLogout} 
+                className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+              >
+                <i data-lucide="log-out" className="w-4 h-4"></i>
+                <span>Sair</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* HEADER MOBILE */}
+          <div className="md:hidden flex items-center justify-between p-4 bg-[#0d1322] border-b border-slate-800/60 shrink-0">
+            <div className="flex items-center space-x-2">
+              <div className="bg-blue-600/20 p-1.5 rounded-lg border border-blue-500/30">
+                <i data-lucide="bar-chart-3" className="w-5 h-5 text-blue-400"></i>
+              </div>
+              <span className="font-bold text-base text-white">FATURAMENTO</span>
+            </div>
+            <button onClick={handleLogout} className="text-rose-400 p-2">
+              <i data-lucide="log-out" className="w-5 h-5"></i>
+            </button>
+          </div>
+
+          {/* CONTEÚDO PRINCIPAL */}
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
+            
+            {/* DASHBOARD */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">Visão Geral</h2>
+                  {loadingData && <span className="text-xs text-blue-400 animate-pulse">Carregando...</span>}
                 </div>
-            </div>
-        </div>
 
-        <!-- FAT EDUARDA -->
-        <div id="tab-eduarda" class="hidden space-y-6">
-            <h2 class="text-2xl font-bold text-purple-400">Gestão - FAT EDUARDA</h2>
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
-                <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
-                        <input type="text" id="mes-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
-                        <input type="number" step="0.01" id="bruto-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
-                        <input type="number" step="0.01" id="lucro-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
-                    </div>
-                    <button onclick="salvarDados('eduarda')" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+                <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-700/40 p-6 rounded-2xl shadow-xl space-y-2">
+                  <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Faturamento Total Combinado</p>
+                  <p className="text-3xl sm:text-4xl font-extrabold text-white">R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
-            </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-2">
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">FAT ANDRÉ</p>
+                    <p className="text-2xl font-bold text-white">R$ {totalAndre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-2">
+                    <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">FAT EDUARDA</p>
+                    <p className="text-2xl font-bold text-white">R$ {totalEduarda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                {/* Tabela de Histórico Recente */}
+                <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-4">
+                  <h3 className="font-semibold text-base text-white">Histórico de Lançamentos</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs sm:text-sm text-slate-300 min-w-[500px]">
+                      <thead className="bg-[#111827] text-slate-400 font-semibold border-b border-slate-800/60">
+                        <tr>
+                          <th className="py-3 px-4">Conta</th>
+                          <th className="py-3 px-4">Mês / Ano</th>
+                          <th className="py-3 px-4">Bruto</th>
+                          <th className="py-3 px-4">Lucro</th>
+                          <th className="py-3 px-4 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/40">
+                        {faturamentos.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="py-6 text-center text-slate-500">Nenhum registro encontrado.</td>
+                          </tr>
+                        ) : (
+                          faturamentos.map(item => (
+                            <tr key={item.id} className="hover:bg-slate-800/20">
+                              <td className="py-3 px-4 uppercase font-bold text-xs">
+                                <span className={item.conta === 'andre' ? 'text-emerald-400' : 'text-purple-400'}>
+                                  {item.conta}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-white">{item.mes}</td>
+                              <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td className="py-3 px-4 text-right">
+                                <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ADICIONAR / GESTÃO */}
+            {activeTab === 'gestao' && (
+              <div className="space-y-6 max-w-xl mx-auto">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Adicionar Faturamento</h2>
+                <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-6 shadow-xl">
+                  <form onSubmit={handleSalvarFaturamento} className="space-y-4">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Selecionar Conta</label>
+                      <select 
+                        value={contaSelecionada} 
+                        onChange={(e) => setContaSelecionada(e.target.value)}
+                        className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="andre">FAT ANDRÉ</option>
+                        <option value="eduarda">FAT EDUARDA</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
+                      <input 
+                        type="text" 
+                        value={mesInput} 
+                        onChange={(e) => setMesInput(e.target.value)}
+                        placeholder="Ex: Janeiro/2026"
+                        required 
+                        className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Faturamento Bruto (R$)</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        value={brutoInput} 
+                        onChange={(e) => setBrutoInput(e.target.value)}
+                        placeholder="0.00"
+                        required 
+                        className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Lucro (R$)</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        value={lucroInput} 
+                        onChange={(e) => setLucroInput(e.target.value)}
+                        placeholder="0.00"
+                        required 
+                        className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono" 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm mt-2"
+                    >
+                      Salvar Registro no Banco
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* NAVEGAÇÃO MOBILE */}
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0d1322] border-t border-slate-800/80 flex justify-around p-2 z-40">
+            <button 
+              onClick={() => setActiveTab('dashboard')} 
+              className={`flex flex-col items-center py-1 px-4 rounded-xl ${activeTab === 'dashboard' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+            >
+              <i data-lucide="layout-dashboard" className="w-5 h-5"></i>
+              <span className="text-[10px] mt-1">Dashboard</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('gestao')} 
+              className={`flex flex-col items-center py-1 px-4 rounded-xl ${activeTab === 'gestao' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+            >
+              <i data-lucide="plus-circle" className="w-5 h-5"></i>
+              <span className="text-[10px] mt-1">Adicionar</span>
+            </button>
+          </nav>
         </div>
+      );
+    }
 
-    </main>
-
-    <script>
-        const SUPABASE_URL = 'https://zyiufxdkcpojjpszixis.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_hmNkWIeW-eHT_QZrPYvRNg_0lii4_2O';
-
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const authScreen = document.getElementById('auth-screen');
-
-        if (sessionStorage.getItem("logado_painel") === "true") {
-            authScreen.classList.add('hidden');
-            carregarTotais();
-        }
-
-        async function fazerLoginBanco() {
-            const emailDigitado = document.getElementById('email-input').value.trim().toLowerCase();
-            const senhaDigitada = document.getElementById('senha-input').value;
-            const errorMsg = document.getElementById('error-msg');
-
-            errorMsg.classList.add('hidden');
-
-            if (!emailDigitado || !senhaDigitada) {
-                alert("Preencha o e-mail e a senha.");
-                return;
-            }
-
-            // Faz a consulta direta e simples na tabela configuracoes
-            const { data, error } = await supabase
-                .from('configuracoes')
-                .select('*')
-                .eq('email', emailDigitado);
-
-            if (error) {
-                alert("Erro ao consultar banco: " + error.message);
-                return;
-            }
-
-            if (!data || data.length === 0) {
-                alert("E-mail não cadastrado na tabela configuracoes do Supabase.");
-                return;
-            }
-
-            const registro = data[0];
-
-            if (senhaDigitada === registro.senha_mestra) {
-                sessionStorage.setItem("logado_painel", "true");
-                authScreen.classList.add('hidden');
-                carregarTotais();
-            } else {
-                errorMsg.classList.remove('hidden');
-                document.getElementById('senha-input').value = "";
-            }
-        }
-
-        function logout() {
-            sessionStorage.removeItem("logado_painel");
-            authScreen.classList.remove('hidden');
-            document.getElementById('senha-input').value = "";
-        }
-
-        function switchTab(tab) {
-            document.getElementById('tab-dashboard').classList.add('hidden');
-            document.getElementById('tab-andre').classList.add('hidden');
-            document.getElementById('tab-eduarda').classList.add('hidden');
-
-            document.getElementById('btn-dashboard').className = "w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition";
-            document.getElementById('btn-andre').className = "w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition";
-            document.getElementById('btn-eduarda').className = "w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition";
-
-            if (tab === 'dashboard') {
-                document.getElementById('tab-dashboard').classList.remove('hidden');
-                document.getElementById('btn-dashboard').className = "w-full text-left px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium transition";
-                carregarTotais();
-            } else if (tab === 'andre') {
-                document.getElementById('tab-andre').classList.remove('hidden');
-                document.getElementById('btn-andre').className = "w-full text-left px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium transition";
-            } else if (tab === 'eduarda') {
-                document.getElementById('tab-eduarda').classList.remove('hidden');
-                document.getElementById('btn-eduarda').className = "w-full text-left px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium transition";
-            }
-        }
-
-        async function salvarDados(conta) {
-            const mes = document.getElementById(`mes-${conta}`).value;
-            const bruto = parseFloat(document.getElementById(`bruto-${conta}`).value);
-            const lucro = parseFloat(document.getElementById(`lucro-${conta}`).value);
-
-            if (!mes || isNaN(bruto) || isNaN(lucro)) {
-                alert('Por favor, preencha todos os campos corretamente.');
-                return;
-            }
-
-            const { error } = await supabase.from('faturamento').insert([{ conta, mes, bruto, lucro }]);
-            if (error) {
-                alert('Erro ao salvar: ' + error.message);
-            } else {
-                alert('Faturamento salvo com sucesso!');
-                document.getElementById(`mes-${conta}`).value = '';
-                document.getElementById(`bruto-${conta}`).value = '';
-                document.getElementById(`lucro-${conta}`).value = '';
-                carregarTotais();
-            }
-        }
-
-        async function carregarTotais() {
-            const { data, error } = await supabase.from('faturamento').select('*');
-            if (error) {
-                console.error("Erro ao carregar dados:", error);
-                return;
-            }
-
-            let totalAndre = 0;
-            let totalEduarda = 0;
-
-            data.forEach(item => {
-                if (item.conta === 'andre') totalAndre += Number(item.bruto);
-                if (item.conta === 'eduarda') totalEduarda += Number(item.bruto);
-            });
-
-            const totalGeral = totalAndre + totalEduarda;
-
-            document.getElementById('total-andre').textContent = `R$ ${totalAndre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('total-eduarda').textContent = `R$ ${totalEduarda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('total-geral').textContent = `R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-        }
-    </script>
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
