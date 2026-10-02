@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Faturamento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+
+    <!-- Menu Lateral -->
+    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col justify-between">
+        <div>
+            <div class="p-5 border-b border-gray-700">
+                <h1 class="text-xl font-bold text-blue-400">📊 Faturamento</h1>
+            </div>
+            <nav class="p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="w-full text-left px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium transition">🏠 Dashboard</button>
+                <button onclick="switchTab('andre')" id="btn-andre" class="w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition">📁 FAT ANDRÉ</button>
+                <button onclick="switchTab('eduarda')" id="btn-eduarda" class="w-full text-left px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300 transition">📁 FAT EDUARDA</button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-gray-700">
+            <button onclick="logout()" class="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded-lg transition font-medium text-sm">🚪 Sair</button>
+        </div>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-1 p-8 overflow-y-auto">
+        
+        <!-- ABA: DASHBOARD -->
+        <div id="tab-dashboard" class="space-y-6">
+            <h2 class="text-2xl font-bold">Visão Geral</h2>
+            
+            <!-- Card Maior em cima -->
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-2xl border border-blue-700 shadow-lg">
+                <p class="text-sm text-blue-200 uppercase tracking-wider font-semibold">Faturamento Total Combinado</p>
+                <p id="total-geral" class="text-4xl font-extrabold mt-2">R$ 0,00</p>
+            </div>
+
+            <!-- 2 Cards Menores embaixo -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <p class="text-sm text-gray-400 uppercase tracking-wider font-semibold">FAT ANDRÉ</p>
+                    <p id="total-andre" class="text-2xl font-bold mt-2 text-emerald-400">R$ 0,00</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <p class="text-sm text-gray-400 uppercase tracking-wider font-semibold">FAT EDUARDA</p>
+                    <p id="total-eduarda" class="text-2xl font-bold mt-2 text-purple-400">R$ 0,00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: FAT ANDRÉ -->
+        <div id="tab-andre" class="hidden space-y-6">
+            <h2 class="text-2xl font-bold text-emerald-400">Gestão - FAT ANDRÉ</h2>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
+                <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
+                <form id="form-andre" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
+                        <input type="text" id="mes-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
+                        <input type="number" step="0.01" id="bruto-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
+                        <input type="number" step="0.01" id="lucro-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ABA: FAT EDUARDA -->
+        <div id="tab-eduarda" class="hidden space-y-6">
+            <h2 class="text-2xl font-bold text-purple-400">Gestão - FAT EDUARDA</h2>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
+                <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
+                <form id="form-eduarda" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
+                        <input type="text" id="mes-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
+                        <input type="number" step="0.01" id="bruto-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
+                        <input type="number" step="0.01" id="lucro-eduarda" required class="url w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                    </div>
+                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
