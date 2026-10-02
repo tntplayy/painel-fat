@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Faturamento</title>
-    <script>
-    alert("O script foi carregado!");
-</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -132,7 +129,6 @@
             carregarTotais();
         }
 
-        // Atribui o evento diretamente pelo ID para garantir o funcionamento
         document.getElementById('btn-entrar').addEventListener('click', async () => {
             const email = document.getElementById('email-input').value.trim();
             const password = document.getElementById('senha-input').value;
@@ -144,8 +140,6 @@
                 alert("Preencha o e-mail e a senha.");
                 return;
             }
-
-            console.log("A tentar autenticar o utilizador:", email);
 
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
