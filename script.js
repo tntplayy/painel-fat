@@ -2,40 +2,74 @@
 const SUPABASE_URL = 'https://moeatmaurbmblfpqwcok.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZWF0bWF1cmJtYmxmcHF3Y29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDE2OTUsImV4cCI6MjEwNjUxNzY5NX0.iOR5Ejz561Kw7AvIpddza30FL2eTIPlebvVIgsI0q0g';
 
+// Garante que o Supabase foi carregado corretamente
+if (window.supabase) {
+    console.log("Supabase SDK carregado com sucesso!");
+} else {
+    console.error("ERRO: Supabase SDK não foi carregado!");
+}
+
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- LÓGICA DE LOGIN ---
-const loginForm = document.getElementById('login-form');
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const errorMsg = document.getElementById('error-msg');
-        
-        errorMsg.classList.add('hidden');
-        errorMsg.textContent = '';
+document.addEventListener("DOMContentLoaded", () => {
+    const loginForm = document.getElementById('login-form');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log("Botão de login acionado. A processar...");
 
-        const { data, error } = await supabase.auth.signInWithPassword({ 
-            email: email, 
-            password: password 
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const errorMsg = document.getElementById('error-msg');
+
+            if (!emailInput || !passwordInput) {
+                alert("Erro: Campos de input não encontrados!");
+                return;
+            }
+
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (errorMsg) {
+                errorMsg.classList.add('hidden');
+                errorMsg.textContent = '';
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({ 
+                    email: email, 
+                    password: password 
+                });
+
+                if (error) {
+                    console.error("Erro retornado pelo Supabase:", error);
+                    alert("Erro ao entrar: " + error.message);
+                    if (errorMsg) {
+                        errorMsg.textContent = 'Erro: ' + error.message;
+                        errorMsg.classList.remove('hidden');
+                    }
+                } else {
+                    console.log("Login bem sucedido! Dados da sessão:", data);
+                    alert("Login bem sucedido! A abrir o painel...");
+                    window.location.href = './dashboard.html';
+                }
+            } catch (err) {
+                console.error("Erro crítico na requisição:", err);
+                alert("Erro inesperado: " + err.message);
+            }
         });
+    } else {
+        console.warn("Aviso: Elemento 'login-form' não encontrado nesta página.");
+    }
+});
 
-        if (error) {
-            console.error("Erro no login:", error.message);
-            errorMsg.textContent = 'Erro: E-mail ou senha incorretos.';
-            errorMsg.classList.remove('hidden');
-        } else {
-            window.location.href = './dashboard.html';
-        }
-    });
-}
-
-// --- VERIFICAÇÃO DE SESSÃO ---
+// --- VERIFICAÇÃO DE SESSÃO (DASHBOARD) ---
 async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session && window.location.pathname.includes('dashboard.html')) {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (!session) {
+        console.warn("Nenhuma sessão ativa encontrada. A redirecionar para o login...");
         window.location.href = './index.html';
     }
 }
