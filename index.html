@@ -137,17 +137,18 @@
             errorMsg.classList.add('hidden');
 
             if (!email || !password) {
-                errorMsg.textContent = "Preencha o e-mail e a senha.";
-                errorMsg.classList.remove('hidden');
+                alert("Preencha o e-mail e a senha.");
                 return;
             }
 
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) {
-                errorMsg.textContent = "E-mail ou senha incorretos.";
+                alert("Erro do Supabase: " + error.message);
+                errorMsg.textContent = "Erro: " + error.message;
                 errorMsg.classList.remove('hidden');
             } else {
+                alert("Login efetuado com sucesso!");
                 sessionStorage.setItem("logado_supabase", "true");
                 authScreen.classList.add('hidden');
                 carregarTotais();
