@@ -30,24 +30,30 @@
     const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
     const { useState, useEffect } = React;
 
-    // Função para formatar enquanto digita (Ex: 1.450,14)
+    const LIMITE_MEI_ANUAL = 81000.00;
+
     const formatarMoedaInput = (valor) => {
       if (!valor) return '';
-      // Remove tudo o que não for número
       let apenasNumeros = valor.replace(/\D/g, '');
       if (!apenasNumeros) return '';
-
-      // Converte para centavos e formata em moeda PT-BR
       let numero = parseFloat(apenasNumeros) / 100;
       return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
-    // Converte string formatada (Ex: "1.450.014,00") para float real para o banco
     const parseValorMonetario = (valorStr) => {
       if (!valorStr) return 0;
       const limpo = String(valorStr).replace(/\./g, '').replace(',', '.');
       const num = parseFloat(limpo);
       return isNaN(num) ? 0 : num;
+    };
+
+    const extrairAno = (mesStr) => {
+      if (!mesStr) return '';
+      const partes = mesStr.split('/');
+      if (partes.length > 1) {
+        return partes[partes.length - 1].trim();
+      }
+      return '';
     };
 
     function App() {
@@ -61,9 +67,10 @@
       const [faturamentos, setFaturamentos] = useState([]);
       const [loadingData, setLoadingData] = useState(false);
 
+      const [filtroAno, setFiltroAno] = useState('TODOS');
       const [filtroMes, setFiltroMes] = useState('TODOS');
+      const [filtroContaHistorico, setFiltroContaHistorico] = useState('TODAS');
 
-      // Campos do formulário de adição/edição
       const [editingId, setEditingId] = useState(null);
       const [contaSelecionada, setContaSelecionada] = useState('andre');
       const [mesInput, setMesInput] = useState('');
@@ -107,7 +114,7 @@
         if (window.lucide) {
           window.lucide.createIcons();
         }
-      }, [session, activeTab, faturamentos, filtroMes]);
+      }, [session, activeTab, faturamentos, filtroAno, filtroMes, filtroContaHistorico]);
 
       const handleLoginSubmit = async (e) => {
         e.preventDefault();
@@ -144,7 +151,6 @@
         const lucroFormatado = parseValorMonetario(lucroInput);
 
         if (editingId) {
-          // Atualizar registro existente
           const { error } = await supabase
             .from('faturamento')
             .update({
@@ -164,7 +170,6 @@
             setActiveTab('dashboard');
           }
         } else {
-          // Inserir novo registro
           const { error } = await supabase.from('faturamento').insert([{
             conta: contaSelecionada,
             mes: mesInput.trim(),
@@ -187,7 +192,6 @@
         setEditingId(item.id);
         setContaSelecionada(item.conta);
         setMesInput(item.mes);
-        // Formata os valores numéricos vindos do banco para o padrão visual com pontos e vírgula
         setBrutoInput(Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setLucroInput(Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         setActiveTab('gestao');
@@ -212,13 +216,22 @@
         }
       };
 
-      const mesesDisponiveis = [...new Set(faturamentos.map(item => item.mes))];
+      const anosDisponiveis = [...new Set(faturamentos.map(item => extrairAno(item.mes)).filter(Boolean))].sort();
+      
+      const mesesDisponiveis = [...new Set(
+        faturamentos
+          .filter(item => filtroAno === 'TODOS' || extrairAno(item.mes) === filtroAno)
+          .map(item => item.mes)
+      )];
 
-      const faturamentosFiltrados = filtroMes === 'TODOS' 
-        ? faturamentos 
-        : faturamentos.filter(item => item.mes === filtroMes);
+      // Faturamento filtrado na Dashboard
+      const faturamentosFiltrados = faturamentos.filter(item => {
+        const anoItem = extrairAno(item.mes);
+        const matchAno = filtroAno === 'TODOS' || anoItem === filtroAno;
+        const matchMes = filtroMes === 'TODOS' || item.mes === filtroMes;
+        return matchAno && matchMes;
+      });
 
-      // Cálculos filtrados
       let totalAndre = 0;
       let totalEduarda = 0;
       faturamentosFiltrados.forEach(item => {
@@ -227,14 +240,47 @@
       });
       const totalGeralFiltrado = totalAndre + totalEduarda;
 
-      // Cálculos Gerais
+      // Faturamento por Ano
+      const faturamentosPorAno = faturamentos.filter(item => {
+        if (filtroAno === 'TODOS') return true;
+        return extrairAno(item.mes) === filtroAno;
+      });
+
       let totalAndreGeral = 0;
       let totalEduardaGeral = 0;
-      faturamentos.forEach(item => {
-        if (item.conta === 'andre') totalAndreGeral += Number(item.bruto || 0);
-        if (item.conta === 'eduarda') totalEduardaGeral += Number(item.bruto || 0);
+      let faturamentoBrutoTotalAno = 0;
+
+      faturamentosPorAno.forEach(item => {
+        const brutoVal = Number(item.bruto || 0);
+        faturamentoBrutoTotalAno += brutoVal;
+        if (item.conta === 'andre') totalAndreGeral += brutoVal;
+        if (item.conta === 'eduarda') totalEduardaGeral += brutoVal;
       });
       const totalGeralAbsoluto = totalAndreGeral + totalEduardaGeral;
+
+      // Cálculos MEI e Rendimento Isento (32%)
+      const percentualMei = Math.min((faturamentoBrutoTotalAno / LIMITE_MEI_ANUAL) * 100, 100);
+      const restanteMei = LIMITE_MEI_ANUAL - faturamentoBrutoTotalAno;
+      const ultrapassouMei = faturamentoBrutoTotalAno > LIMITE_MEI_ANUAL;
+      const rendimentoIsento32 = faturamentoBrutoTotalAno * 0.32;
+
+      // Histórico filtrado com cálculo de variação percentual mensal
+      const historicoOrdenado = [...faturamentos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      const historicoComVariacao = historicoOrdenado.map((item, index, arr) => {
+        let percentualMudanca = 0;
+        if (index > 0) {
+          const mesAnterior = arr[index - 1];
+          if (mesAnterior.bruto > 0) {
+            percentualMudanca = ((item.bruto - mesAnterior.bruto) / mesAnterior.bruto) * 100;
+          }
+        }
+        return { ...item, percentualMudanca };
+      }).reverse(); // Mais recente primeiro
+
+      const historicoFiltradoConta = historicoComVariacao.filter(item => {
+        if (filtroContaHistorico === 'TODAS') return true;
+        return item.conta === filtroContaHistorico;
+      });
 
       if (!session) {
         return (
@@ -312,6 +358,22 @@
                 </button>
 
                 <button 
+                  onClick={() => setActiveTab('mei')} 
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'mei' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
+                >
+                  <i data-lucide="shield-check" className="w-5 h-5"></i>
+                  <span>MEI & IR</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab('historico')} 
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'historico' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
+                >
+                  <i data-lucide="history" className="w-5 h-5"></i>
+                  <span>Histórico</span>
+                </button>
+
+                <button 
                   onClick={() => { limparFormulario(); setActiveTab('gestao'); }} 
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'gestao' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
                 >
@@ -351,28 +413,46 @@
             {/* DASHBOARD */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-white">Visão Geral</h2>
                   
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-slate-400 font-medium">Filtrar Mês:</span>
-                    <select
-                      value={filtroMes}
-                      onChange={(e) => setFiltroMes(e.target.value)}
-                      className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-blue-400 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="TODOS">📅 Todos os Meses</option>
-                      {mesesDisponiveis.map(mes => (
-                        <option key={mes} value={mes}>{mes}</option>
-                      ))}
-                    </select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-xs text-slate-400 font-medium">Ano:</span>
+                      <select
+                        value={filtroAno}
+                        onChange={(e) => { setFiltroAno(e.target.value); setFiltroMes('TODOS'); }}
+                        className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-emerald-400 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="TODOS">📅 Todos os Anos</option>
+                        {anosDisponiveis.map(ano => (
+                          <option key={ano} value={ano}>{ano}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-xs text-slate-400 font-medium">Mês:</span>
+                      <select
+                        value={filtroMes}
+                        onChange={(e) => setFiltroMes(e.target.value)}
+                        className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-blue-400 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="TODOS">📅 Todos os Meses</option>
+                        {mesesDisponiveis.map(mes => (
+                          <option key={mes} value={mes}>{mes}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {/* TOTAL GERAL ACUMULADO */}
+                {/* TOTAL ACUMULADO GERAL */}
                 <div className="bg-gradient-to-r from-indigo-950/60 to-slate-900 border border-indigo-700/40 p-5 rounded-2xl shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <p className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Total Acumulado Geral (Todos os Meses)</p>
+                    <p className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">
+                      Total Acumulado Geral ({filtroAno === 'TODOS' ? 'Todos os Anos' : filtroAno})
+                    </p>
                     <p className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">R$ {totalGeralAbsoluto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="text-xs text-slate-400">
@@ -384,61 +464,166 @@
                 {/* TOTAL FILTRADO */}
                 <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-700/40 p-6 rounded-2xl shadow-xl space-y-2">
                   <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider">
-                    Faturamento Filtrado ({filtroMes === 'TODOS' ? 'Geral' : filtroMes})
+                    Faturamento Selecionado ({filtroMes === 'TODOS' ? (filtroAno === 'TODOS' ? 'Geral' : `Ano ${filtroAno}`) : filtroMes})
                   </p>
                   <p className="text-3xl sm:text-4xl font-extrabold text-white">R$ {totalGeralFiltrado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-2">
-                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">FATURAMENTO ANDRÉ ({filtroMes === 'TODOS' ? 'Geral' : filtroMes})</p>
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">FAT ANDRÉ (Seleção Atual)</p>
                     <p className="text-2xl font-bold text-white">R$ {totalAndre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-2">
-                    <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">FATURAMENTO EDUARDA ({filtroMes === 'TODOS' ? 'Geral' : filtroMes})</p>
+                    <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">FAT EDUARDA (Seleção Atual)</p>
                     <p className="text-2xl font-bold text-white">R$ {totalEduarda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Tabela */}
-                <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-base text-white">Histórico de Lançamentos</h3>
-                    {loadingData && <span className="text-xs text-blue-400 animate-pulse">Carregando...</span>}
+            {/* ABA MEI & IR */}
+            {activeTab === 'mei' && (
+              <div className="space-y-6 max-w-2xl mx-auto">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Acompanhamento MEI & Imposto de Renda</h2>
+
+                <div className="flex items-center space-x-2 pb-2">
+                  <span className="text-xs text-slate-400 font-medium">Selecione o Ano Base:</span>
+                  <select
+                    value={filtroAno}
+                    onChange={(e) => setFiltroAno(e.target.value)}
+                    className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-emerald-400 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="TODOS">📅 Todos os Anos</option>
+                    {anosDisponiveis.map(ano => (
+                      <option key={ano} value={ano}>{ano}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* PAINEL TETO MEI */}
+                <div className="bg-[#0d1322] border border-slate-800/60 p-6 rounded-2xl shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <div>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                        <span>🛡️ Limite Faturamento Anual MEI</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Bruto Acumulado: <strong className="text-white">R$ {faturamentoBrutoTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> / Teto: R$ 81.000,00[cite: 1]
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {ultrapassouMei ? (
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          ⚠️ Limite MEI Ultrapassado!
+                        </span>
+                      ) : (
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          Restam: R$ {restanteMei.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                    <div 
+                      className={`h-3 rounded-full transition-all duration-500 ${ultrapassouMei ? 'bg-rose-500' : percentualMei > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                      style={{ width: `${percentualMei}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400">
+                    <span>0%</span>
+                    <span>{percentualMei.toFixed(1)}% utilizado do limite anual</span>
+                    <span>100% (R$ 81k)</span>
+                  </div>
+                </div>
+
+                {/* PAINEL RENDIMENTO ISENTO IRPF (32%) */}
+                <div className="bg-gradient-to-r from-blue-950/50 to-slate-900 border border-blue-700/40 p-6 rounded-2xl shadow-xl space-y-3">
+                  <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider flex items-center space-x-2">
+                    <span>📄 Rendimento Isento (IRPF - 32%)</span>
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Com base no faturamento bruto de <strong className="text-white">R$ {faturamentoBrutoTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, a parcela correspondente à margem de presunção para prestação de serviços (32%) é considerada **Rendimento Isento** na sua Declaração de Imposto de Renda Pessoa Física.
+                  </p>
+                  <div className="pt-2 border-t border-blue-900/40 flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-medium">Total Isento Calculado:</span>
+                    <span className="text-xl font-extrabold text-emerald-400">R$ {rendimentoIsento32.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ABA HISTÓRICO SEPARADO */}
+            {activeTab === 'historico' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">Histórico de Lançamentos</h2>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400 font-medium">Filtrar Conta:</span>
+                    <select
+                      value={filtroContaHistorico}
+                      onChange={(e) => setFiltroContaHistorico(e.target.value)}
+                      className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-blue-400 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="TODAS">📁 Todas as Contas</option>
+                      <option value="andre">📁 FAT ANDRÉ</option>
+                      <option value="eduarda">📁 FAT EDUARDA</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-5 space-y-4 shadow-xl">
+                  {loadingData && <span className="text-xs text-blue-400 animate-pulse">Carregando histórico...</span>}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs sm:text-sm text-slate-300 min-w-[500px]">
+                    <table className="w-full text-left text-xs sm:text-sm text-slate-300 min-w-[600px]">
                       <thead className="bg-[#111827] text-slate-400 font-semibold border-b border-slate-800/60">
                         <tr>
                           <th className="py-3 px-4">Conta</th>
                           <th className="py-3 px-4">Mês / Ano</th>
                           <th className="py-3 px-4">Bruto</th>
                           <th className="py-3 px-4">Lucro</th>
+                          <th className="py-3 px-4">Variação Mês Ant.</th>
                           <th className="py-3 px-4 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40">
-                        {faturamentosFiltrados.length === 0 ? (
+                        {historicoFiltradoConta.length === 0 ? (
                           <tr>
-                            <td colSpan="5" className="py-6 text-center text-slate-500">Nenhum registro encontrado para este filtro.</td>
+                            <td colSpan="6" className="py-8 text-center text-slate-500">Nenhum registro encontrado.</td>
                           </tr>
                         ) : (
-                          faturamentosFiltrados.map(item => (
-                            <tr key={item.id} className="hover:bg-slate-800/20">
-                              <td className="py-3 px-4 uppercase font-bold text-xs">
-                                <span className={item.conta === 'andre' ? 'text-emerald-400' : 'text-purple-400'}>
-                                  {item.conta}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-white font-medium">{item.mes}</td>
-                              <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                              <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                              <td className="py-3 px-4 text-right space-x-1">
-                                <button onClick={() => handleEditar(item)} title="Editar" className="text-slate-400 hover:text-blue-400 p-1">✏️</button>
-                                <button onClick={() => handleDelete(item.id)} title="Excluir" className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
-                              </td>
-                            </tr>
-                          ))
+                          historicoFiltradoConta.map(item => {
+                            const variacao = item.percentualMudanca;
+                            const isPositivo = variacao >= 0;
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-800/20">
+                                <td className="py-3 px-4 uppercase font-bold text-xs">
+                                  <span className={item.conta === 'andre' ? 'text-emerald-400' : 'text-purple-400'}>
+                                    {item.conta}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-white font-medium">{item.mes}</td>
+                                <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 font-mono text-xs">
+                                  {variacao === 0 ? (
+                                    <span className="text-slate-500">—</span>
+                                  ) : (
+                                    <span className={`inline-flex items-center space-x-1 font-semibold ${isPositivo ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                      <span>{isPositivo ? '⬆️' : '⬇️'}</span>
+                                      <span>{isPositivo ? '+' : ''}{variacao.toFixed(1)}%</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right space-x-1">
+                                  <button onClick={() => handleEditar(item)} title="Editar" className="text-slate-400 hover:text-blue-400 p-1">✏️</button>
+                                  <button onClick={() => handleDelete(item.id)} title="Excluir" className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -470,8 +655,8 @@
                         onChange={(e) => setContaSelecionada(e.target.value)}
                         className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
                       >
-                        <option value="andre">FATURAMENTO ANDRÉ</option>
-                        <option value="eduarda">FATURAMENTO EDUARDA</option>
+                        <option value="andre">FAT ANDRÉ</option>
+                        <option value="eduarda">FAT EDUARDA</option>
                       </select>
                     </div>
                     <div>
@@ -486,7 +671,7 @@
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">Faturamento Bruto</label>
+                      <label className="block text-xs text-slate-400 mb-1">Faturamento Bruto (Pontuação Automática)</label>
                       <input 
                         type="text" 
                         value={brutoInput} 
@@ -497,7 +682,7 @@
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">Lucro</label>
+                      <label className="block text-xs text-slate-400 mb-1">Lucro (Pontuação Automática)</label>
                       <input 
                         type="text" 
                         value={lucroInput} 
@@ -523,15 +708,31 @@
           <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0d1322] border-t border-slate-800/80 flex justify-around p-2 z-40">
             <button 
               onClick={() => setActiveTab('dashboard')} 
-              className={`flex flex-col items-center py-1 px-4 rounded-xl ${activeTab === 'dashboard' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+              className={`flex flex-col items-center py-1 px-3 rounded-xl ${activeTab === 'dashboard' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
             >
               <i data-lucide="layout-dashboard" className="w-5 h-5"></i>
               <span className="text-[10px] mt-1">Dashboard</span>
             </button>
 
             <button 
+              onClick={() => setActiveTab('mei')} 
+              className={`flex flex-col items-center py-1 px-3 rounded-xl ${activeTab === 'mei' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+            >
+              <i data-lucide="shield-check" className="w-5 h-5"></i>
+              <span className="text-[10px] mt-1">MEI</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('historico')} 
+              className={`flex flex-col items-center py-1 px-3 rounded-xl ${activeTab === 'historico' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+            >
+              <i data-lucide="history" className="w-5 h-5"></i>
+              <span className="text-[10px] mt-1">Histórico</span>
+            </button>
+
+            <button 
               onClick={() => { limparFormulario(); setActiveTab('gestao'); }} 
-              className={`flex flex-col items-center py-1 px-4 rounded-xl ${activeTab === 'gestao' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
+              className={`flex flex-col items-center py-1 px-3 rounded-xl ${activeTab === 'gestao' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
             >
               <i data-lucide="plus-circle" className="w-5 h-5"></i>
               <span className="text-[10px] mt-1">Adicionar</span>
