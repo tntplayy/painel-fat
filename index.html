@@ -25,15 +25,26 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const supabaseUrl = 'https://qpxkmcxehqzorommuwyd.supabase.co';
-    const supabaseAnonKey = 'sb_publishable_VC0o3Z3ljnXuvX4vBUIwbw_USqRMkyQ';
+    const supabaseUrl = 'https://zyiufxdkcpojjpszixis.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_hmNkWIeW-eHT_QZrPYvRNg_0lii4_2O';
     const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
     const { useState, useEffect } = React;
 
-    // Função auxiliar robusta para converter valores digitados (ex: "1.500,50" ou "1500,50") em float real
+    // Função para formatar enquanto digita (Ex: 1.450,14)
+    const formatarMoedaInput = (valor) => {
+      if (!valor) return '';
+      // Remove tudo o que não for número
+      let apenasNumeros = valor.replace(/\D/g, '');
+      if (!apenasNumeros) return '';
+
+      // Converte para centavos e formata em moeda PT-BR
+      let numero = parseFloat(apenasNumeros) / 100;
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    // Converte string formatada (Ex: "1.450.014,00") para float real para o banco
     const parseValorMonetario = (valorStr) => {
       if (!valorStr) return 0;
-      // Remove pontos de milhar e troca vírgula decimal por ponto
       const limpo = String(valorStr).replace(/\./g, '').replace(',', '.');
       const num = parseFloat(limpo);
       return isNaN(num) ? 0 : num;
@@ -52,7 +63,8 @@
 
       const [filtroMes, setFiltroMes] = useState('TODOS');
 
-      // Campos do formulário de adição (mantidos como string para aceitar pontuação livre)
+      // Campos do formulário de adição/edição
+      const [editingId, setEditingId] = useState(null);
       const [contaSelecionada, setContaSelecionada] = useState('andre');
       const [mesInput, setMesInput] = useState('');
       const [brutoInput, setBrutoInput] = useState('');
@@ -131,30 +143,72 @@
         const brutoFormatado = parseValorMonetario(brutoInput);
         const lucroFormatado = parseValorMonetario(lucroInput);
 
-        const { error } = await supabase.from('faturamento').insert([{
-          conta: contaSelecionada,
-          mes: mesInput.trim(),
-          bruto: brutoFormatado,
-          lucro: lucroFormatado
-        }]);
+        if (editingId) {
+          // Atualizar registro existente
+          const { error } = await supabase
+            .from('faturamento')
+            .update({
+              conta: contaSelecionada,
+              mes: mesInput.trim(),
+              bruto: brutoFormatado,
+              lucro: lucroFormatado
+            })
+            .eq('id', editingId);
 
-        if (error) {
-          alert('Erro ao salvar: ' + error.message);
+          if (error) {
+            alert('Erro ao atualizar: ' + error.message);
+          } else {
+            alert('Registro atualizado com sucesso!');
+            limparFormulario();
+            carregarFaturamentos();
+            setActiveTab('dashboard');
+          }
         } else {
-          alert('Registro salvo com sucesso!');
-          setMesInput('');
-          setBrutoInput('');
-          setLucroInput('');
-          carregarFaturamentos();
+          // Inserir novo registro
+          const { error } = await supabase.from('faturamento').insert([{
+            conta: contaSelecionada,
+            mes: mesInput.trim(),
+            bruto: brutoFormatado,
+            lucro: lucroFormatado
+          }]);
+
+          if (error) {
+            alert('Erro ao salvar: ' + error.message);
+          } else {
+            alert('Registro salvo com sucesso!');
+            limparFormulario();
+            carregarFaturamentos();
+            setActiveTab('dashboard');
+          }
         }
       };
 
+      const handleEditar = (item) => {
+        setEditingId(item.id);
+        setContaSelecionada(item.conta);
+        setMesInput(item.mes);
+        // Formata os valores numéricos vindos do banco para o padrão visual com pontos e vírgula
+        setBrutoInput(Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        setLucroInput(Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        setActiveTab('gestao');
+      };
+
+      const limparFormulario = () => {
+        setEditingId(null);
+        setMesInput('');
+        setBrutoInput('');
+        setLucroInput('');
+        setContaSelecionada('andre');
+      };
+
       const handleDelete = async (id) => {
-        const { error } = await supabase.from('faturamento').delete().eq('id', id);
-        if (error) {
-          alert('Erro ao deletar: ' + error.message);
-        } else {
-          carregarFaturamentos();
+        if (confirm('Tem certeza que deseja excluir este lançamento?')) {
+          const { error } = await supabase.from('faturamento').delete().eq('id', id);
+          if (error) {
+            alert('Erro ao deletar: ' + error.message);
+          } else {
+            carregarFaturamentos();
+          }
         }
       };
 
@@ -173,7 +227,7 @@
       });
       const totalGeralFiltrado = totalAndre + totalEduarda;
 
-      // Cálculos Gerais (Acumulado de todos os meses)
+      // Cálculos Gerais
       let totalAndreGeral = 0;
       let totalEduardaGeral = 0;
       faturamentos.forEach(item => {
@@ -258,7 +312,7 @@
                 </button>
 
                 <button 
-                  onClick={() => setActiveTab('gestao')} 
+                  onClick={() => { limparFormulario(); setActiveTab('gestao'); }} 
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'gestao' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'}`}
                 >
                   <i data-lucide="plus-circle" className="w-5 h-5"></i>
@@ -360,7 +414,7 @@
                           <th className="py-3 px-4">Mês / Ano</th>
                           <th className="py-3 px-4">Bruto</th>
                           <th className="py-3 px-4">Lucro</th>
-                          <th className="py-3 px-4 text-right">Ação</th>
+                          <th className="py-3 px-4 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40">
@@ -379,8 +433,9 @@
                               <td className="py-3 px-4 text-white font-medium">{item.mes}</td>
                               <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.bruto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                               <td className="py-3 px-4 font-mono text-slate-200">R$ {Number(item.lucro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                              <td className="py-3 px-4 text-right">
-                                <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
+                              <td className="py-3 px-4 text-right space-x-1">
+                                <button onClick={() => handleEditar(item)} title="Editar" className="text-slate-400 hover:text-blue-400 p-1">✏️</button>
+                                <button onClick={() => handleDelete(item.id)} title="Excluir" className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
                               </td>
                             </tr>
                           ))
@@ -392,10 +447,20 @@
               </div>
             )}
 
-            {/* ADICIONAR / GESTÃO */}
+            {/* ADICIONAR / EDITAR GESTÃO */}
             {activeTab === 'gestao' && (
               <div className="space-y-6 max-w-xl mx-auto">
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Adicionar Faturamento</h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {editingId ? '✏️ Editar Lançamento' : '➕ Adicionar Faturamento'}
+                  </h2>
+                  {editingId && (
+                    <button onClick={limparFormulario} className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-700">
+                      Cancelar Edição
+                    </button>
+                  )}
+                </div>
+
                 <div className="bg-[#0d1322] border border-slate-800/60 rounded-2xl p-6 shadow-xl">
                   <form onSubmit={handleSalvarFaturamento} className="space-y-4">
                     <div>
@@ -421,22 +486,22 @@
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">Faturamento Bruto (Ex: 1.500,00 ou 1500,00)</label>
+                      <label className="block text-xs text-slate-400 mb-1">Faturamento Bruto (Pontuação Automática)</label>
                       <input 
                         type="text" 
                         value={brutoInput} 
-                        onChange={(e) => setBrutoInput(e.target.value)}
+                        onChange={(e) => setBrutoInput(formatarMoedaInput(e.target.value))}
                         placeholder="0,00"
                         required 
                         className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono" 
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">Lucro (Ex: 800,50)</label>
+                      <label className="block text-xs text-slate-400 mb-1">Lucro (Pontuação Automática)</label>
                       <input 
                         type="text" 
                         value={lucroInput} 
-                        onChange={(e) => setLucroInput(e.target.value)}
+                        onChange={(e) => setLucroInput(formatarMoedaInput(e.target.value))}
                         placeholder="0,00"
                         required 
                         className="w-full bg-[#111827] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono" 
@@ -446,7 +511,7 @@
                       type="submit" 
                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm mt-2"
                     >
-                      Salvar Registro no Banco
+                      {editingId ? 'Atualizar Registro' : 'Salvar Registro no Banco'}
                     </button>
                   </form>
                 </div>
@@ -465,7 +530,7 @@
             </button>
 
             <button 
-              onClick={() => setActiveTab('gestao')} 
+              onClick={() => { limparFormulario(); setActiveTab('gestao'); }} 
               className={`flex flex-col items-center py-1 px-4 rounded-xl ${activeTab === 'gestao' ? 'text-blue-400 font-bold' : 'text-slate-400'}`}
             >
               <i data-lucide="plus-circle" className="w-5 h-5"></i>
