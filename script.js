@@ -1,6 +1,6 @@
 // Substitua pelas suas credenciais do projeto Supabase
 const SUPABASE_URL = 'https://moeatmaurbmblfpqwcok.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_4EP6jXUqmF0pSXe1EF_2ww_GbYXkJDw'; // Cole sua chave anon/public aqui
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZWF0bWF1cmJtYmxmcHF3Y29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDE2OTUsImV4cCI6MjEwNjUxNzY5NX0.iOR5Ejz561Kw7AvIpddza30FL2eTIPlebvVIgsI0q0g';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
