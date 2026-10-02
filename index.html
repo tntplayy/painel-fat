@@ -12,7 +12,7 @@
     <!-- TELA DE LOGIN -->
     <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 INSIRA OS DADOS DE ACESSO</h2>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
@@ -136,7 +136,10 @@
 
             errorMsg.classList.add('hidden');
 
-            if (!emailDigitado || !senhaDigitada) return;
+            if (!emailDigitado || !senhaDigitada) {
+                alert("Preencha o e-mail e a senha.");
+                return;
+            }
 
             const { data, error } = await supabase
                 .from('configuracoes')
@@ -144,19 +147,29 @@
                 .eq('email', emailDigitado)
                 .single();
 
-            if (error || !data || senhaDigitada !== data.senha_mestra) {
-                errorMsg.classList.remove('hidden');
-                document.getElementById('senha-input').value = "";
-            } else {
+            if (error) {
+                alert("Erro técnico do Supabase: " + error.message);
+                return;
+            }
+
+            if (!data) {
+                alert("E-mail não encontrado na base de dados.");
+                return;
+            }
+
+            if (senhaDigitada === data.senha_mestra) {
                 sessionStorage.setItem("logado_painel", "true");
                 authScreen.classList.add('hidden');
                 carregarTotais();
+            } else {
+                errorMsg.classList.remove('hidden');
+                document.getElementById('senha-input').value = "";
             }
         }
 
         function logout() {
             sessionStorage.removeItem("logado_painel");
-            authScreen.classList.add('hidden');
+            authScreen.classList.remove('hidden');
             document.getElementById('email-input').value = "";
             document.getElementById('senha-input').value = "";
         }
