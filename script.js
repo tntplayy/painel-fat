@@ -4,38 +4,26 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- LÓGICA DE LOGIN ---
+// --- LÓGICA DE LOGIN (TESTE DIRETO) ---
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // IMPEDE O RECARREGAMENTO DA PÁGINA
+        e.preventDefault();
         
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
-        const errorMsg = document.getElementById('error-msg');
-        
-        // Esconde o erro anterior enquanto tenta de novo
-        errorMsg.classList.add('hidden');
-        errorMsg.textContent = '';
 
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({ 
-                email: email, 
-                password: password 
-            });
+        // Tenta fazer o login
+        const { data, error } = await supabase.auth.signInWithPassword({ 
+            email: email, 
+            password: password 
+        });
 
-            if (error) {
-                console.error("Erro do Supabase:", error.message);
-                errorMsg.textContent = 'Erro: ' + error.message;
-                errorMsg.classList.remove('hidden');
-            } else if (data && data.session) {
-                // Sucesso! Redireciona para a dashboard
-                window.location.href = 'dashboard.html';
-            }
-        } catch (err) {
-            console.error("Erro inesperado:", err);
-            errorMsg.textContent = 'Ocorreu um erro ao tentar entrar.';
-            errorMsg.classList.remove('hidden');
+        if (error) {
+            alert("Erro no login: " + error.message);
+        } else {
+            alert("Login realizado com sucesso! Clica em OK para ir para o painel.");
+            window.location.href = 'dashboard.html';
         }
     });
 }
