@@ -13,20 +13,20 @@
     <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
             <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
-            <form id="login-form" class="space-y-4" onsubmit="fazerLogin(event)">
+            <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
-                    <input type="email" id="email-input" required placeholder="seu@email.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                    <input type="email" id="email-input" placeholder="seu@email.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
-                    <input type="password" id="senha-input" required placeholder="Sua senha" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                    <input type="password" id="senha-input" placeholder="Sua senha" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200">
+                <button onclick="fazerLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200">
                     Entrar no Painel
                 </button>
                 <p id="error-msg" class="text-red-400 text-sm text-center mt-2 hidden"></p>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -74,21 +74,21 @@
             <h2 class="text-2xl font-bold text-emerald-400">Gestão - FAT ANDRÉ</h2>
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
                 <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <form onsubmit="salvarDados(event, 'andre')" class="space-y-4">
+                <div class="space-y-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
-                        <input type="text" id="mes-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="text" id="mes-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
-                        <input type="number" step="0.01" id="bruto-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="number" step="0.01" id="bruto-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
-                        <input type="number" step="0.01" id="lucro-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="number" step="0.01" id="lucro-andre" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
-                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
-                </form>
+                    <button onclick="salvarDados('andre')" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+                </div>
             </div>
         </div>
 
@@ -97,21 +97,21 @@
             <h2 class="text-2xl font-bold text-purple-400">Gestão - FAT EDUARDA</h2>
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
                 <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <form onsubmit="salvarDados(event, 'eduarda')" class="space-y-4">
+                <div class="space-y-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
-                        <input type="text" id="mes-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="text" id="mes-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Faturamento Bruto (R$)</label>
-                        <input type="number" step="0.01" id="bruto-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="number" step="0.01" id="bruto-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Lucro (R$)</label>
-                        <input type="number" step="0.01" id="lucro-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
+                        <input type="number" step="0.01" id="lucro-eduarda" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
                     </div>
-                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
-                </form>
+                    <button onclick="salvarDados('eduarda')" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium transition">Salvar Registro</button>
+                </div>
             </div>
         </div>
 
@@ -124,19 +124,23 @@
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const authScreen = document.getElementById('auth-screen');
 
-        // Mantém conectado na sessão atual do navegador
         if (sessionStorage.getItem("logado_supabase") === "true") {
             authScreen.classList.add('hidden');
             carregarTotais();
         }
 
-        async function fazerLogin(event) {
-            event.preventDefault();
+        async function fazerLogin() {
             const email = document.getElementById('email-input').value.trim();
             const password = document.getElementById('senha-input').value;
             const errorMsg = document.getElementById('error-msg');
 
             errorMsg.classList.add('hidden');
+
+            if (!email || !password) {
+                errorMsg.textContent = "Preencha o e-mail e a senha.";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
 
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -180,18 +184,24 @@
             }
         }
 
-        async function salvarDados(event, conta) {
-            event.preventDefault();
+        async function salvarDados(conta) {
             const mes = document.getElementById(`mes-${conta}`).value;
             const bruto = parseFloat(document.getElementById(`bruto-${conta}`).value);
             const lucro = parseFloat(document.getElementById(`lucro-${conta}`).value);
+
+            if (!mes || isNaN(bruto) || isNaN(lucro)) {
+                alert('Por favor, preencha todos os campos corretamente.');
+                return;
+            }
 
             const { error } = await supabase.from('faturamento').insert([{ conta, mes, bruto, lucro }]);
             if (error) {
                 alert('Erro ao salvar: ' + error.message);
             } else {
                 alert('Faturamento salvo com sucesso!');
-                event.target.reset();
+                document.getElementById(`mes-${conta}`).value = '';
+                document.getElementById(`bruto-${conta}`).value = '';
+                document.getElementById(`lucro-${conta}`).value = '';
                 carregarTotais();
             }
         }
