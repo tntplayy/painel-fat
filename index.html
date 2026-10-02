@@ -12,11 +12,11 @@
     <!-- TELA DE LOGIN -->
     <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 INSIRA OS DADOS DE ACESSO</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
-                    <input type="email" id="email-input" placeholder="tntplayy@gmail.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                    <input type="text" id="email-input" value="tntplayy@gmail.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
@@ -141,23 +141,25 @@
                 return;
             }
 
+            // Faz a consulta direta e simples na tabela configuracoes
             const { data, error } = await supabase
                 .from('configuracoes')
-                .select('senha_mestra')
-                .eq('email', emailDigitado)
-                .single();
+                .select('*')
+                .eq('email', emailDigitado);
 
             if (error) {
-                alert("Erro técnico do Supabase: " + error.message);
+                alert("Erro ao consultar banco: " + error.message);
                 return;
             }
 
-            if (!data) {
-                alert("E-mail não encontrado na base de dados.");
+            if (!data || data.length === 0) {
+                alert("E-mail não cadastrado na tabela configuracoes do Supabase.");
                 return;
             }
 
-            if (senhaDigitada === data.senha_mestra) {
+            const registro = data[0];
+
+            if (senhaDigitada === registro.senha_mestra) {
                 sessionStorage.setItem("logado_painel", "true");
                 authScreen.classList.add('hidden');
                 carregarTotais();
@@ -170,7 +172,6 @@
         function logout() {
             sessionStorage.removeItem("logado_painel");
             authScreen.classList.remove('hidden');
-            document.getElementById('email-input').value = "";
             document.getElementById('senha-input').value = "";
         }
 
