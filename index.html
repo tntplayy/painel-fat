@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Faturamento</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS SDK v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
@@ -14,7 +13,7 @@
     <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
             <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
-            <form id="login-form" class="space-y-4" onsubmit="fazerLoginSupabase(event)">
+            <form id="login-form" class="space-y-4" onsubmit="fazerLogin(event)">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
                     <input type="email" id="email-input" required placeholder="seu@email.com" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
@@ -119,27 +118,19 @@
     </main>
 
     <script>
-        // Configuração do Supabase
         const SUPABASE_URL = 'https://moeatmaurbmblfpqwcok.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZWF0bWF1cmJtYmxmcHF3Y29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDE2OTUsImV4cCI6MjEwNjUxNzY5NX0.iOR5Ejz561Kw7AvIpddza30FL2eTIPlebvVIgsI0q0g';
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const authScreen = document.getElementById('auth-screen');
 
-        // Verifica sessão ao carregar
-        async function verificarSessao() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                authScreen.classList.add('hidden');
-                carregarTotais();
-            } else {
-                authScreen.classList.remove('hidden');
-            }
+        // Mantém conectado na sessão atual do navegador
+        if (sessionStorage.getItem("logado_supabase") === "true") {
+            authScreen.classList.add('hidden');
+            carregarTotais();
         }
-        verificarSessao();
 
-        // Login com Supabase Auth (E-mail e Senha)
-        async function fazerLoginSupabase(event) {
+        async function fazerLogin(event) {
             event.preventDefault();
             const email = document.getElementById('email-input').value.trim();
             const password = document.getElementById('senha-input').value;
@@ -153,20 +144,20 @@
                 errorMsg.textContent = "E-mail ou senha incorretos.";
                 errorMsg.classList.remove('hidden');
             } else {
+                sessionStorage.setItem("logado_supabase", "true");
                 authScreen.classList.add('hidden');
                 carregarTotais();
             }
         }
 
-        // Logout
         async function logout() {
             await supabase.auth.signOut();
+            sessionStorage.removeItem("logado_supabase");
             authScreen.classList.remove('hidden');
             document.getElementById('email-input').value = "";
             document.getElementById('senha-input').value = "";
         }
 
-        // Navegação entre abas
         function switchTab(tab) {
             document.getElementById('tab-dashboard').classList.add('hidden');
             document.getElementById('tab-andre').classList.add('hidden');
@@ -189,7 +180,6 @@
             }
         }
 
-        // Salvar dados no Supabase
         async function salvarDados(event, conta) {
             event.preventDefault();
             const mes = document.getElementById(`mes-${conta}`).value;
@@ -206,7 +196,6 @@
             }
         }
 
-        // Carregar totais do Supabase
         async function carregarTotais() {
             const { data, error } = await supabase.from('faturamento').select('*');
             if (error) {
