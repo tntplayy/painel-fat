@@ -8,18 +8,34 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
+        e.preventDefault(); // IMPEDE O RECARREGAMENTO DA PÁGINA
+        
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
+        
+        // Esconde o erro anterior enquanto tenta de novo
+        errorMsg.classList.add('hidden');
+        errorMsg.textContent = '';
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ 
+                email: email, 
+                password: password 
+            });
 
-        if (error) {
-            errorMsg.textContent = 'E-mail ou senha incorretos.';
+            if (error) {
+                console.error("Erro do Supabase:", error.message);
+                errorMsg.textContent = 'Erro: ' + error.message;
+                errorMsg.classList.remove('hidden');
+            } else if (data && data.session) {
+                // Sucesso! Redireciona para a dashboard
+                window.location.href = 'dashboard.html';
+            }
+        } catch (err) {
+            console.error("Erro inesperado:", err);
+            errorMsg.textContent = 'Ocorreu um erro ao tentar entrar.';
             errorMsg.classList.remove('hidden');
-        } else {
-            window.location.href = 'dashboard.html';
         }
     });
 }
