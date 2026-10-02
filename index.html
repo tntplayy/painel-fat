@@ -4,35 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Faturamento</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS SDK v2 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-900 text-white flex h-screen overflow-hidden">
 
-    <!-- TELA DE LOGIN (Mostrada se não estiver autenticado) -->
+    <!-- TELA DE LOGIN -->
     <div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 border border-gray-700">
             <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">🔒 Acesso Restrito</h2>
-            <form id="login-form" class="space-y-4">
+            <form id="login-form" class="space-y-4" onsubmit="fazerLogin(event)">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">E-mail</label>
-                    <input type="email" id="email" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
-                    <input type="password" id="password" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Senha de Acesso</label>
+                    <input type="password" id="senha-input" required placeholder="Digite a senha" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500">
                 </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200">
                     Entrar no Painel
                 </button>
-                <p id="error-msg" class="text-red-400 text-sm text-center mt-2 hidden"></p>
+                <p id="error-msg" class="text-red-400 text-sm text-center mt-2 hidden">Senha incorreta!</p>
             </form>
         </div>
     </div>
 
-    <!-- MENU LATERAL (Painel Principal) -->
+    <!-- MENU LATERAL -->
     <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col justify-between">
         <div>
             <div class="p-5 border-b border-gray-700">
@@ -52,7 +45,7 @@
     <!-- CONTEÚDO PRINCIPAL -->
     <main class="flex-1 p-8 overflow-y-auto">
         
-        <!-- ABA: DASHBOARD -->
+        <!-- DASHBOARD -->
         <div id="tab-dashboard" class="space-y-6">
             <h2 class="text-2xl font-bold">Visão Geral</h2>
             <div class="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-2xl border border-blue-700 shadow-lg">
@@ -71,12 +64,12 @@
             </div>
         </div>
 
-        <!-- ABA: FAT ANDRÉ -->
+        <!-- FAT ANDRÉ -->
         <div id="tab-andre" class="hidden space-y-6">
             <h2 class="text-2xl font-bold text-emerald-400">Gestão - FAT ANDRÉ</h2>
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
                 <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <form id="form-andre" class="space-y-4">
+                <form onsubmit="salvarDados(event, 'andre')" class="space-y-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
                         <input type="text" id="mes-andre" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
@@ -94,12 +87,12 @@
             </div>
         </div>
 
-        <!-- ABA: FAT EDUARDA -->
+        <!-- FAT EDUARDA -->
         <div id="tab-eduarda" class="hidden space-y-6">
             <h2 class="text-2xl font-bold text-purple-400">Gestão - FAT EDUARDA</h2>
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 max-w-xl">
                 <h3 class="text-lg font-semibold mb-4">Adicionar Faturamento do Mês</h3>
-                <form id="form-eduarda" class="space-y-4">
+                <form onsubmit="salvarDados(event, 'eduarda')" class="space-y-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Mês / Ano (Ex: Janeiro/2026)</label>
                         <input type="text" id="mes-eduarda" required class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg">
@@ -119,55 +112,36 @@
 
     </main>
 
-    <!-- SCRIPT CENTRALIZADO COM DIAGNÓSTICO -->
     <script>
-        const SUPABASE_URL = 'https://moeatmaurbmblfpqwcok.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZWF0bWF1cmJtYmxmcHF3Y29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDE2OTUsImV4cCI6MjEwNjUxNzY5NX0.iOR5Ejz561Kw7AvIpddza30FL2eTIPlebvVIgsI0q0g';
+        // Defina a sua senha mestra aqui:
+        const SENHA_MESTRA = "123456"; 
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const authScreen = document.getElementById('auth-screen');
-
-        // Verifica sessão ao carregar
-        async function checkSession() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                authScreen.classList.add('hidden');
-                carregarTotais();
-            } else {
-                authScreen.classList.remove('hidden');
-            }
+        // Verifica se já está logado na sessão atual
+        if (sessionStorage.getItem("logado") === "true") {
+            document.getElementById('auth-screen').classList.add('hidden');
+            atualizarTotais();
         }
-        checkSession();
 
-        // Lógica de Login
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
+        function fazerLogin(event) {
+            event.preventDefault();
+            const senhaDigitada = document.getElementById('senha-input').value;
             const errorMsg = document.getElementById('error-msg');
 
-            errorMsg.classList.add('hidden');
-
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-            if (error) {
-                alert("Erro ao entrar: " + error.message);
-                errorMsg.textContent = error.message;
-                errorMsg.classList.remove('hidden');
+            if (senhaDigitada === SENHA_MESTRA) {
+                sessionStorage.setItem("logado", "true");
+                document.getElementById('auth-screen').classList.add('hidden');
+                atualizarTotais();
             } else {
-                alert("Login efetuado com sucesso!");
-                authScreen.classList.add('hidden');
-                carregarTotais();
+                errorMsg.classList.remove('hidden');
             }
-        });
-
-        // Logout
-        async function logout() {
-            await supabase.auth.signOut();
-            authScreen.classList.remove('hidden');
         }
 
-        // Navegação entre abas
+        function logout() {
+            sessionStorage.removeItem("logado");
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('senha-input').value = "";
+        }
+
         function switchTab(tab) {
             document.getElementById('tab-dashboard').classList.add('hidden');
             document.getElementById('tab-andre').classList.add('hidden');
@@ -180,7 +154,7 @@
             if (tab === 'dashboard') {
                 document.getElementById('tab-dashboard').classList.remove('hidden');
                 document.getElementById('btn-dashboard').className = "w-full text-left px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium transition";
-                carregarTotais();
+                atualizarTotais();
             } else if (tab === 'andre') {
                 document.getElementById('tab-andre').classList.remove('hidden');
                 document.getElementById('btn-andre').className = "w-full text-left px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-medium transition";
@@ -190,47 +164,27 @@
             }
         }
 
-        // Salvar André
-        document.getElementById('form-andre').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const mes = document.getElementById('mes-andre').value;
-            const bruto = parseFloat(document.getElementById('bruto-andre').value);
-            const lucro = parseFloat(document.getElementById('lucro-andre').value);
+        function salvarDados(event, conta) {
+            event.preventDefault();
+            const mes = document.getElementById(`mes-${conta}`).value;
+            const bruto = parseFloat(document.getElementById(`bruto-${conta}`).value);
+            const lucro = parseFloat(document.getElementById(`lucro-${conta}`).value);
 
-            const { error } = await supabase.from('faturamento').insert([{ conta: 'andre', mes, bruto, lucro }]);
-            if (error) alert('Erro ao salvar: ' + error.message);
-            else {
-                alert('Salvo com sucesso!');
-                document.getElementById('form-andre').reset();
-                carregarTotais();
-            }
-        });
+            let registros = JSON.parse(localStorage.getItem('faturamento_painel') || '[]');
+            registros.push({ conta, mes, bruto, lucro });
+            localStorage.setItem('faturamento_painel', JSON.stringify(registros));
 
-        // Salvar Eduarda
-        document.getElementById('form-eduarda').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const mes = document.getElementById('mes-eduarda').value;
-            const bruto = parseFloat(document.getElementById('bruto-eduarda').value);
-            const lucro = parseFloat(document.getElementById('lucro-eduarda').value);
+            alert('Faturamento salvo com sucesso!');
+            event.target.reset();
+            atualizarTotais();
+        }
 
-            const { error } = await supabase.from('faturamento').insert([{ conta: 'eduarda', mes, bruto, lucro }]);
-            if (error) alert('Erro ao salvar: ' + error.message);
-            else {
-                alert('Salvo com sucesso!');
-                document.getElementById('form-eduarda').reset();
-                carregarTotais();
-            }
-        });
-
-        // Carregar Totais
-        async function carregarTotais() {
-            const { data, error } = await supabase.from('faturamento').select('*');
-            if (error) return;
-
+        function atualizarTotais() {
+            let registros = JSON.parse(localStorage.getItem('faturamento_painel') || '[]');
             let totalAndre = 0;
             let totalEduarda = 0;
 
-            data.forEach(item => {
+            registros.forEach(item => {
                 if (item.conta === 'andre') totalAndre += Number(item.bruto);
                 if (item.conta === 'eduarda') totalEduarda += Number(item.bruto);
             });
