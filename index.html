@@ -118,8 +118,8 @@
     </main>
 
     <script>
-        const SUPABASE_URL = 'https://moeatmaurbmblfpqwcok.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZWF0bWF1cmJtYmxmcHF3Y29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NDE2OTUsImV4cCI6MjEwNjUxNzY5NX0.iOR5Ejz561Kw7AvIpddza30FL2eTIPlebvVIgsI0q0g';
+        const SUPABASE_URL = 'https://zyiufxdkcpojjpszixis.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5aXVmeGRrY3Bvampwc3ppeGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTMxMjksImV4cCI6MjEwNjQ4OTEyOX0.CvI92mhJv3hZXmzxFhzHWv2xB2_6ivmOxcFaSrEI-b8';
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const authScreen = document.getElementById('auth-screen');
@@ -129,7 +129,6 @@
             carregarTotais();
         }
 
-        // Valida o e-mail e a senha direto na tabela segura do Supabase
         async function fazerLoginBanco() {
             const emailDigitado = document.getElementById('email-input').value.trim().toLowerCase();
             const senhaDigitada = document.getElementById('senha-input').value;
