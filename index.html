@@ -69,6 +69,7 @@
 
       const [filtroAno, setFiltroAno] = useState('TODOS');
       const [filtroMes, setFiltroMes] = useState('TODOS');
+      const [filtroContaMei, setFiltroContaMei] = useState('TODAS');
       const [filtroContaHistorico, setFiltroContaHistorico] = useState('TODAS');
 
       const [editingId, setEditingId] = useState(null);
@@ -114,7 +115,7 @@
         if (window.lucide) {
           window.lucide.createIcons();
         }
-      }, [session, activeTab, faturamentos, filtroAno, filtroMes, filtroContaHistorico]);
+      }, [session, activeTab, faturamentos, filtroAno, filtroMes, filtroContaMei, filtroContaHistorico]);
 
       const handleLoginSubmit = async (e) => {
         e.preventDefault();
@@ -240,7 +241,7 @@
       });
       const totalGeralFiltrado = totalAndre + totalEduarda;
 
-      // Faturamento por Ano
+      // Faturamento por Ano Geral
       const faturamentosPorAno = faturamentos.filter(item => {
         if (filtroAno === 'TODOS') return true;
         return extrairAno(item.mes) === filtroAno;
@@ -248,34 +249,45 @@
 
       let totalAndreGeral = 0;
       let totalEduardaGeral = 0;
-      let faturamentoBrutoTotalAno = 0;
-
       faturamentosPorAno.forEach(item => {
         const brutoVal = Number(item.bruto || 0);
-        faturamentoBrutoTotalAno += brutoVal;
         if (item.conta === 'andre') totalAndreGeral += brutoVal;
         if (item.conta === 'eduarda') totalEduardaGeral += brutoVal;
       });
       const totalGeralAbsoluto = totalAndreGeral + totalEduardaGeral;
 
-      // Cálculos MEI e Rendimento Isento (32%)
-      const percentualMei = Math.min((faturamentoBrutoTotalAno / LIMITE_MEI_ANUAL) * 100, 100);
-      const restanteMei = LIMITE_MEI_ANUAL - faturamentoBrutoTotalAno;
-      const ultrapassouMei = faturamentoBrutoTotalAno > LIMITE_MEI_ANUAL;
-      const rendimentoIsento32 = faturamentoBrutoTotalAno * 0.32;
+      // Cálculos MEI e Rendimento Isento (32%) com filtro por conta dedicado
+      const faturamentosMeiFiltrados = faturamentosPorAno.filter(item => {
+        if (filtroContaMei === 'TODAS') return true;
+        return item.conta === filtroContaMei;
+      });
 
-      // Histórico filtrado com cálculo de variação percentual mensal
+      let faturamentoBrutoTotalMei = 0;
+      faturamentosMeiFiltrados.forEach(item => {
+        faturamentoBrutoTotalMei += Number(item.bruto || 0);
+      });
+
+      const percentualMei = Math.min((faturamentoBrutoTotalMei / LIMITE_MEI_ANUAL) * 100, 100);
+      const restanteMei = LIMITE_MEI_ANUAL - faturamentoBrutoTotalMei;
+      const ultrapassouMei = faturamentoBrutoTotalMei > LIMITE_MEI_ANUAL;
+      const rendimentoIsento32 = faturamentoBrutoTotalMei * 0.32;
+
+      // Histórico filtrado com cálculo de variação percentual mensal estritamente sobre o FATURAMENTO BRUTO
       const historicoOrdenado = [...faturamentos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       const historicoComVariacao = historicoOrdenado.map((item, index, arr) => {
         let percentualMudanca = 0;
         if (index > 0) {
-          const mesAnterior = arr[index - 1];
-          if (mesAnterior.bruto > 0) {
-            percentualMudanca = ((item.bruto - mesAnterior.bruto) / mesAnterior.bruto) * 100;
+          // Busca o mês anterior da MESMA CONTA para calcular a variação real do bruto
+          const historicoMesmaConta = arr.slice(0, index).filter(x => x.conta === item.conta);
+          if (historicoMesmaConta.length > 0) {
+            const mesAnterior = historicoMesmaConta[historicoMesmaConta.length - 1];
+            if (mesAnterior.bruto > 0) {
+              percentualMudanca = ((item.bruto - mesAnterior.bruto) / mesAnterior.bruto) * 100;
+            }
           }
         }
         return { ...item, percentualMudanca };
-      }).reverse(); // Mais recente primeiro
+      }).reverse();
 
       const historicoFiltradoConta = historicoComVariacao.filter(item => {
         if (filtroContaHistorico === 'TODAS') return true;
@@ -487,18 +499,33 @@
               <div className="space-y-6 max-w-2xl mx-auto">
                 <h2 className="text-xl sm:text-2xl font-bold text-white">Acompanhamento MEI & Imposto de Renda</h2>
 
-                <div className="flex items-center space-x-2 pb-2">
-                  <span className="text-xs text-slate-400 font-medium">Selecione o Ano Base:</span>
-                  <select
-                    value={filtroAno}
-                    onChange={(e) => setFiltroAno(e.target.value)}
-                    className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-emerald-400 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="TODOS">📅 Todos os Anos</option>
-                    {anosDisponiveis.map(ano => (
-                      <option key={ano} value={ano}>{ano}</option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap items-center gap-4 pb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400 font-medium">Ano Base:</span>
+                    <select
+                      value={filtroAno}
+                      onChange={(e) => setFiltroAno(e.target.value)}
+                      className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-emerald-400 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="TODOS">📅 Todos os Anos</option>
+                      {anosDisponiveis.map(ano => (
+                        <option key={ano} value={ano}>{ano}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400 font-medium">Conta:</span>
+                    <select
+                      value={filtroContaMei}
+                      onChange={(e) => setFiltroContaMei(e.target.value)}
+                      className="bg-[#0d1322] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-blue-400 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="TODAS">📁 Ambas (André + Eduarda)</option>
+                      <option value="andre">📁 André</option>
+                      <option value="eduarda">📁 Eduarda</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* PAINEL TETO MEI */}
@@ -506,10 +533,10 @@
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <div>
                       <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                        <span>🛡️ Limite Faturamento Anual MEI</span>
+                        <span>🛡️ Limite Faturamento Anual MEI ({filtroContaMei === 'TODAS' ? 'Geral' : filtroContaMei})</span>
                       </h3>
                       <p className="text-xs text-slate-400 mt-1">
-                        Bruto Acumulado: <strong className="text-white">R$ {faturamentoBrutoTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> / Teto: R$ 81.000,00[cite: 1]
+                        Bruto Acumulado: <strong className="text-white">R$ {faturamentoBrutoTotalMei.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> / Teto: R$ 81.000,00[cite: 1]
                       </p>
                     </div>
                     <div className="text-right">
@@ -544,7 +571,7 @@
                     <span>📄 Rendimento Isento (IRPF - 32%)</span>
                   </h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Com base no faturamento bruto de <strong className="text-white">R$ {faturamentoBrutoTotalAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, a parcela correspondente à margem de presunção para prestação de serviços (32%) é considerada **Rendimento Isento** na sua Declaração de Imposto de Renda Pessoa Física.
+                    Com base no faturamento bruto de <strong className="text-white">R$ {faturamentoBrutoTotalMei.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, a parcela correspondente à margem de presunção para prestação de serviços (32%) é considerada **Rendimento Isento** na sua Declaração de Imposto de Renda Pessoa Física.
                   </p>
                   <div className="pt-2 border-t border-blue-900/40 flex justify-between items-center">
                     <span className="text-xs text-slate-400 font-medium">Total Isento Calculado:</span>
@@ -584,7 +611,7 @@
                           <th className="py-3 px-4">Mês / Ano</th>
                           <th className="py-3 px-4">Bruto</th>
                           <th className="py-3 px-4">Lucro</th>
-                          <th className="py-3 px-4">Variação Mês Ant.</th>
+                          <th className="py-3 px-4">Var. Bruto (Mês Ant.)</th>
                           <th className="py-3 px-4 text-right">Ações</th>
                         </tr>
                       </thead>
@@ -618,7 +645,7 @@
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-right space-x-1">
-                                  <button onClick={() => handleEditar(item)} title="Editar" className="text-slate-400 hover:text-blue-400 p-1">✏️</button>
+                                  <button onClick={() => handleEditar(item)} title="Editar" className="text-slate-400 hover:text-blue-400 p-1">✏️️</button>
                                   <button onClick={() => handleDelete(item.id)} title="Excluir" className="text-slate-400 hover:text-rose-400 p-1">🗑️</button>
                                 </td>
                               </tr>
